@@ -5,7 +5,7 @@
 
     <groupId>com.urfour.artemis</groupId>
     <artifactId>ArtemisTheSpire</artifactId>
-    <version>0.1</version>
+    <version>1.0.0</version>
     <packaging>jar</packaging>
     <name>ArtemisTheSpire</name>
     <description>Game State Integration for Artemis RGB</description>

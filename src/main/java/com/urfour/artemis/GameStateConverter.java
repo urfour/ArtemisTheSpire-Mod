@@ -6,6 +6,7 @@ import com.megacrit.cardcrawl.actions.GameActionManager;
 import com.megacrit.cardcrawl.cards.AbstractCard;
 import com.megacrit.cardcrawl.characters.AbstractPlayer;
 import com.megacrit.cardcrawl.core.AbstractCreature;
+import com.megacrit.cardcrawl.core.CardCrawlGame;
 import com.megacrit.cardcrawl.core.Settings;
 import com.megacrit.cardcrawl.dungeons.AbstractDungeon;
 import com.megacrit.cardcrawl.events.AbstractEvent;
@@ -47,14 +48,7 @@ public class GameStateConverter {
      * @return A string containing the JSON representation of CommunicationMod's status
      */
     public static String getCommunicationState() {
-        HashMap<String, Object> response = new HashMap<>();
-        response.put("AvailableCommands", CommandExecutor.getAvailableCommands());
-        response.put("ReadyForCommand", GameStateListener.isWaitingForCommand());
-        boolean isInGame = CommandExecutor.isInDungeon();
-        response.put("InGame", isInGame);
-        if(isInGame) {
-            response.put("GameState", getGameState());
-        }
+        HashMap<String, Object> response = getGameState();
         Gson gson = new Gson();
         return gson.toJson(response);
     }
@@ -63,6 +57,7 @@ public class GameStateConverter {
     /**
      * Creates a JSON representation of the game state, which will be sent to the client.
      * Always present:
+     * - "in_game" (boolean): True if in the main menu, False if the player is in the dungeon
      * - "screen_name" (string): The name of the Enum representing the current screen (defined by Mega Crit)
      * - "is_screen_up" (boolean): The game's isScreenUp variable
      * - "screen_type" (string): The type of screen (or decision) that the user if facing (defined by Communication Mod)
@@ -92,62 +87,64 @@ public class GameStateConverter {
      */
     private static HashMap<String, Object> getGameState() {
         HashMap<String, Object> state = new HashMap<>();
+        boolean inGame = CardCrawlGame.mode == CardCrawlGame.GameMode.GAMEPLAY && AbstractDungeon.isPlayerInDungeon() && AbstractDungeon.currMapNode != null;
+        state.put("InGame", inGame);
+        if (inGame) {
+            state.put("ScreenName", AbstractDungeon.screen.name());
+            state.put("IsScreenUp", AbstractDungeon.isScreenUp);
+            state.put("ScreenType", ChoiceScreenUtils.getCurrentChoiceType());
+            state.put("RoomPhase", AbstractDungeon.getCurrRoom().phase.toString());
+            state.put("ActionPhase", AbstractDungeon.actionManager.phase.toString());
+            if (AbstractDungeon.actionManager.currentAction != null) {
+                state.put("CurrentAction", AbstractDungeon.actionManager.currentAction.getClass().getSimpleName());
+            }
+            state.put("RoomType", AbstractDungeon.getCurrRoom().getClass().getSimpleName());
+            state.put("CurrentHP", AbstractDungeon.player.currentHealth);
+            state.put("MaxHP", AbstractDungeon.player.maxHealth);
+            state.put("Floor", AbstractDungeon.floorNum);
+            state.put("Act", AbstractDungeon.actNum);
+            state.put("ActBoss", AbstractDungeon.bossKey);
+            state.put("Gold", AbstractDungeon.player.gold);
+            state.put("Seed", Settings.seed);
+            state.put("Class", AbstractDungeon.player.chosenClass.name());
+            state.put("AscensionLevel", AbstractDungeon.ascensionLevel);
 
-        state.put("ScreenName", AbstractDungeon.screen.name());
-        state.put("IsScreenUp", AbstractDungeon.isScreenUp);
-        state.put("ScreenType", ChoiceScreenUtils.getCurrentChoiceType());
-        state.put("RoomPhase", AbstractDungeon.getCurrRoom().phase.toString());
-        state.put("ActionPhase", AbstractDungeon.actionManager.phase.toString());
-        if(AbstractDungeon.actionManager.currentAction != null) {
-            state.put("CurrentAction", AbstractDungeon.actionManager.currentAction.getClass().getSimpleName());
+            ArrayList<Object> relics = new ArrayList<>();
+            for (AbstractRelic relic : AbstractDungeon.player.relics) {
+                relics.add(convertRelicToJson(relic));
+            }
+
+            state.put("Relics", relics);
+
+            ArrayList<Object> deck = new ArrayList<>();
+            for (AbstractCard card : AbstractDungeon.player.masterDeck.group) {
+                deck.add(convertCardToJson(card));
+            }
+
+            state.put("Deck", deck);
+
+            ArrayList<Object> potions = new ArrayList<>();
+            for (AbstractPotion potion : AbstractDungeon.player.potions) {
+                potions.add(convertPotionToJson(potion));
+            }
+
+            state.put("Potions", potions);
+
+            state.put("Map", convertMapToJson());
+            if (CommandExecutor.isChooseCommandAvailable()) {
+                state.put("ChoiceList", ChoiceScreenUtils.getCurrentChoiceList());
+            }
+            if (AbstractDungeon.getCurrRoom().phase.equals(AbstractRoom.RoomPhase.COMBAT)) {
+                state.put("CombatState", getCombatState());
+            }
+            state.put("ScreenState", getScreenState());
+
+            HashMap<String, Boolean> keys = new HashMap<>();
+            keys.put("Ruby", Settings.hasRubyKey);
+            keys.put("Emerald", Settings.hasEmeraldKey);
+            keys.put("Sapphire", Settings.hasSapphireKey);
+            state.put("Keys", keys);
         }
-        state.put("RoomType", AbstractDungeon.getCurrRoom().getClass().getSimpleName());
-        state.put("CurrentHP", AbstractDungeon.player.currentHealth);
-        state.put("MaxHP", AbstractDungeon.player.maxHealth);
-        state.put("Floor", AbstractDungeon.floorNum);
-        state.put("Act", AbstractDungeon.actNum);
-        state.put("ActBoss", AbstractDungeon.bossKey);
-        state.put("Gold", AbstractDungeon.player.gold);
-        state.put("Seed", Settings.seed);
-        state.put("Class", AbstractDungeon.player.chosenClass.name());
-        state.put("AscensionLevel", AbstractDungeon.ascensionLevel);
-
-        ArrayList<Object> relics = new ArrayList<>();
-        for(AbstractRelic relic : AbstractDungeon.player.relics) {
-            relics.add(convertRelicToJson(relic));
-        }
-
-        state.put("Relics", relics);
-
-        ArrayList<Object> deck = new ArrayList<>();
-        for(AbstractCard card : AbstractDungeon.player.masterDeck.group) {
-            deck.add(convertCardToJson(card));
-        }
-
-        state.put("Deck", deck);
-
-        ArrayList<Object> potions = new ArrayList<>();
-        for(AbstractPotion potion : AbstractDungeon.player.potions) {
-            potions.add(convertPotionToJson(potion));
-        }
-
-        state.put("Potions", potions);
-
-        state.put("Map", convertMapToJson());
-        if(CommandExecutor.isChooseCommandAvailable()) {
-            state.put("ChoiceList", ChoiceScreenUtils.getCurrentChoiceList());
-        }
-        if(AbstractDungeon.getCurrRoom().phase.equals(AbstractRoom.RoomPhase.COMBAT)) {
-            state.put("CombatState", getCombatState());
-        }
-        state.put("ScreenState", getScreenState());
-
-        HashMap<String, Boolean> keys = new HashMap<>();
-        keys.put("Ruby", Settings.hasRubyKey);
-        keys.put("Emerald", Settings.hasEmeraldKey);
-        keys.put("Sapphire", Settings.hasSapphireKey);
-        state.put("Keys", keys);
-
         return state;
     }
 
