@@ -14,7 +14,7 @@ public class GameStateListener {
     private static AbstractRoom.RoomPhase previousPhase = null;
     private static boolean previousGridSelectConfirmUp = false;
     private static int previousGold = 99;
-    private static boolean externalChange = false;
+    protected static boolean externalChange = false;
     private static boolean myTurn = false;
     private static boolean blocked = false;
     private static boolean waitingForCommand = false;
@@ -91,6 +91,10 @@ public class GameStateListener {
         waitOneUpdate = false;
     }
 
+    public static boolean isPlayerTurn() {
+        return myTurn;
+    }
+
     /**
      * Detects whether the game state is stable and we are ready to receive a command from the user.
      *
@@ -117,12 +121,7 @@ public class GameStateListener {
         if (newScreen == AbstractDungeon.CurrentScreen.DOOR_UNLOCK || newScreen == AbstractDungeon.CurrentScreen.NO_INTERACT) {
             return false;
         }
-        // We are not ready to receive commands when it is not our turn, except for some pesky screens
-        if (inCombat && (!myTurn || AbstractDungeon.getMonsters().areMonstersBasicallyDead())) {
-            if (!newScreenUp) {
-                return false;
-            }
-        }
+
         // In event rooms, we need to wait for the event wait timer to reach 0 before we can accurately assess its state.
         AbstractRoom currentRoom = AbstractDungeon.getCurrRoom();
         if ((currentRoom instanceof EventRoom
@@ -135,17 +134,7 @@ public class GameStateListener {
         // However, the state may not be finished changing, so we need to do some additional checks.
         if (newScreen != previousScreen || newScreenUp != previousScreenUp || newPhase != previousPhase) {
             if (inCombat) {
-                // In combat, newScreenUp being true indicates an action that requires our immediate attention.
-                if (newScreenUp) {
-                    return true;
-                }
-                // In combat, if no screen is up, we should wait for all actions to complete before indicating a state change.
-                else if (AbstractDungeon.actionManager.phase.equals(GameActionManager.Phase.WAITING_ON_USER)
-                        && AbstractDungeon.actionManager.cardQueue.isEmpty()
-                        && AbstractDungeon.actionManager.actions.isEmpty()) {
-                    return true;
-                }
-
+                return true;
             // Out of combat, we want to wait one update cycle, as some screen transitions trigger further updates.
             } else {
                 waitOneUpdate = true;
@@ -158,13 +147,7 @@ public class GameStateListener {
             waitOneUpdate = false;
             return true;
         }
-        // We are assuming that commands are only being submitted through our interface. Some actions that require
-        // our attention, like retaining a card, occur after the end turn is queued, but the previous cases
-        // cover those actions. We would like to avoid registering other state changes after the end turn
-        // command but before the game actually ends your turn.
-        if (inCombat && AbstractDungeon.player.endTurnQueued) {
-            return false;
-        }
+
         // If some other code registered a state change through registerStateChange(), or if we notice a state
         // change through the gold amount changing, we still need to wait until all actions are finished
         // resolving to claim a stable state and ask for a new command.
@@ -245,4 +228,5 @@ public class GameStateListener {
     public static boolean isWaitingForCommand() {
         return waitingForCommand;
     }
+
 }

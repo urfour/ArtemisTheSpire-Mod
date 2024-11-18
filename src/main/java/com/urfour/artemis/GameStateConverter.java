@@ -508,6 +508,7 @@ public class GameStateConverter {
      */
     private static HashMap<String, Object> getCombatState() {
         HashMap<String, Object> state = new HashMap<>();
+        state.put("IsPlayerTurn", !AbstractDungeon.player.endTurnQueued);
         ArrayList<Object> monsters = new ArrayList<>();
         for(AbstractMonster monster : AbstractDungeon.getCurrRoom().monsters.monsters) {
             monsters.add(convertMonsterToJson(monster));
