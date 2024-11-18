@@ -228,5 +228,6 @@ public class GameStateListener {
     public static boolean isWaitingForCommand() {
         return waitingForCommand;
     }
+    public static boolean isMyTurn() { return myTurn; }
 
 }
