@@ -1,12 +1,15 @@
 package com.urfour.artemis;
 
 import com.megacrit.cardcrawl.actions.GameActionManager;
+import com.megacrit.cardcrawl.cards.AbstractCard;
 import com.megacrit.cardcrawl.core.CardCrawlGame;
 import com.megacrit.cardcrawl.dungeons.AbstractDungeon;
 import com.megacrit.cardcrawl.neow.NeowRoom;
 import com.megacrit.cardcrawl.rooms.AbstractRoom;
 import com.megacrit.cardcrawl.rooms.EventRoom;
 import com.megacrit.cardcrawl.rooms.VictoryRoom;
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
 
 public class GameStateListener {
     private static AbstractDungeon.CurrentScreen previousScreen = null;
@@ -21,6 +24,9 @@ public class GameStateListener {
     private static boolean hasPresentedOutOfGameState = false;
     private static boolean waitOneUpdate = false;
     private static int timeout = 0;
+    private static AbstractCard previousCardPlayed = null;
+    private static AbstractCard cardPlayed = null;
+    private static Logger logger = LogManager.getLogger(GameStateListener.class);
 
     /**
      * Used to indicate that something (in game logic, not external command) has been done that will change the game state,
@@ -229,5 +235,19 @@ public class GameStateListener {
         return waitingForCommand;
     }
     public static boolean isMyTurn() { return myTurn; }
+
+    public static void notifyCardPlayed(AbstractCard card) {
+        cardPlayed = card;
+        logger.info("Card played: " + card.name);
+    }
+
+    public static AbstractCard getCardPlayed() {
+        if (cardPlayed != null && (previousCardPlayed == null || cardPlayed.uuid != previousCardPlayed.uuid)) {
+            previousCardPlayed = cardPlayed;
+            return cardPlayed;
+        }
+        return null;
+    }
+
 
 }
