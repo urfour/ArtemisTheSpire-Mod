@@ -31,6 +31,8 @@ import com.megacrit.cardcrawl.shop.StoreRelic;
 import com.megacrit.cardcrawl.ui.buttons.LargeDialogOptionButton;
 import com.megacrit.cardcrawl.ui.panels.EnergyPanel;
 import com.urfour.artemis.patches.UpdateBodyTextPatch;
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
 
 import java.lang.reflect.Field;
 import java.util.ArrayList;
@@ -53,6 +55,7 @@ public class GameStateConverter {
         return gson.toJson(response);
     }
 
+    private static final Logger logger = LogManager.getLogger(Artemis.class.getName());
 
     /**
      * Creates a JSON representation of the game state, which will be sent to the client.
@@ -508,6 +511,7 @@ public class GameStateConverter {
      */
     private static HashMap<String, Object> getCombatState() {
         HashMap<String, Object> state = new HashMap<>();
+        state.put("IsPlayerTurn", GameStateListener.isMyTurn());
         ArrayList<Object> monsters = new ArrayList<>();
         for(AbstractMonster monster : AbstractDungeon.getCurrRoom().monsters.monsters) {
             monsters.add(convertMonsterToJson(monster));
@@ -540,6 +544,11 @@ public class GameStateConverter {
         state.put("Limbo", limbo);
         if (AbstractDungeon.player.cardInUse != null) {
             state.put("CardInPlay", convertCardToJson(AbstractDungeon.player.cardInUse));
+        } else {
+            AbstractCard cardPlayed = GameStateListener.getCardPlayed();
+            if (cardPlayed != null) {
+                state.put("CardInPlay", convertCardToJson(cardPlayed));
+            }
         }
         state.put("Player", convertPlayerToJson(AbstractDungeon.player));
         state.put("Turn", GameActionManager.turn);

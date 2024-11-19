@@ -5,7 +5,7 @@
   "credits": "ForgottenArbiter - Creator of CommunicationMod, inspiration for this mod",
   "description": "${project.description}",
   "version": "${project.version}",
-  "sts_version": "12-18-2022",
-  "mts_version": "3.30.3",
+  "sts_version": "${SlayTheSpire.version}",
+  "mts_version": "${ModTheSpire.version}",
   "dependencies": ["basemod"]
 }

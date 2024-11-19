@@ -1,12 +1,15 @@
 package com.urfour.artemis;
 
 import com.megacrit.cardcrawl.actions.GameActionManager;
+import com.megacrit.cardcrawl.cards.AbstractCard;
 import com.megacrit.cardcrawl.core.CardCrawlGame;
 import com.megacrit.cardcrawl.dungeons.AbstractDungeon;
 import com.megacrit.cardcrawl.neow.NeowRoom;
 import com.megacrit.cardcrawl.rooms.AbstractRoom;
 import com.megacrit.cardcrawl.rooms.EventRoom;
 import com.megacrit.cardcrawl.rooms.VictoryRoom;
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
 
 public class GameStateListener {
     private static AbstractDungeon.CurrentScreen previousScreen = null;
@@ -14,13 +17,16 @@ public class GameStateListener {
     private static AbstractRoom.RoomPhase previousPhase = null;
     private static boolean previousGridSelectConfirmUp = false;
     private static int previousGold = 99;
-    private static boolean externalChange = false;
+    protected static boolean externalChange = false;
     private static boolean myTurn = false;
     private static boolean blocked = false;
     private static boolean waitingForCommand = false;
     private static boolean hasPresentedOutOfGameState = false;
     private static boolean waitOneUpdate = false;
     private static int timeout = 0;
+    private static AbstractCard previousCardPlayed = null;
+    private static AbstractCard cardPlayed = null;
+    private static Logger logger = LogManager.getLogger(GameStateListener.class);
 
     /**
      * Used to indicate that something (in game logic, not external command) has been done that will change the game state,
@@ -91,6 +97,10 @@ public class GameStateListener {
         waitOneUpdate = false;
     }
 
+    public static boolean isPlayerTurn() {
+        return myTurn;
+    }
+
     /**
      * Detects whether the game state is stable and we are ready to receive a command from the user.
      *
@@ -117,12 +127,7 @@ public class GameStateListener {
         if (newScreen == AbstractDungeon.CurrentScreen.DOOR_UNLOCK || newScreen == AbstractDungeon.CurrentScreen.NO_INTERACT) {
             return false;
         }
-        // We are not ready to receive commands when it is not our turn, except for some pesky screens
-        if (inCombat && (!myTurn || AbstractDungeon.getMonsters().areMonstersBasicallyDead())) {
-            if (!newScreenUp) {
-                return false;
-            }
-        }
+
         // In event rooms, we need to wait for the event wait timer to reach 0 before we can accurately assess its state.
         AbstractRoom currentRoom = AbstractDungeon.getCurrRoom();
         if ((currentRoom instanceof EventRoom
@@ -135,17 +140,7 @@ public class GameStateListener {
         // However, the state may not be finished changing, so we need to do some additional checks.
         if (newScreen != previousScreen || newScreenUp != previousScreenUp || newPhase != previousPhase) {
             if (inCombat) {
-                // In combat, newScreenUp being true indicates an action that requires our immediate attention.
-                if (newScreenUp) {
-                    return true;
-                }
-                // In combat, if no screen is up, we should wait for all actions to complete before indicating a state change.
-                else if (AbstractDungeon.actionManager.phase.equals(GameActionManager.Phase.WAITING_ON_USER)
-                        && AbstractDungeon.actionManager.cardQueue.isEmpty()
-                        && AbstractDungeon.actionManager.actions.isEmpty()) {
-                    return true;
-                }
-
+                return true;
             // Out of combat, we want to wait one update cycle, as some screen transitions trigger further updates.
             } else {
                 waitOneUpdate = true;
@@ -158,13 +153,7 @@ public class GameStateListener {
             waitOneUpdate = false;
             return true;
         }
-        // We are assuming that commands are only being submitted through our interface. Some actions that require
-        // our attention, like retaining a card, occur after the end turn is queued, but the previous cases
-        // cover those actions. We would like to avoid registering other state changes after the end turn
-        // command but before the game actually ends your turn.
-        if (inCombat && AbstractDungeon.player.endTurnQueued) {
-            return false;
-        }
+
         // If some other code registered a state change through registerStateChange(), or if we notice a state
         // change through the gold amount changing, we still need to wait until all actions are finished
         // resolving to claim a stable state and ask for a new command.
@@ -245,4 +234,20 @@ public class GameStateListener {
     public static boolean isWaitingForCommand() {
         return waitingForCommand;
     }
+    public static boolean isMyTurn() { return myTurn; }
+
+    public static void notifyCardPlayed(AbstractCard card) {
+        cardPlayed = card;
+        logger.info("Card played: " + card.name);
+    }
+
+    public static AbstractCard getCardPlayed() {
+        if (cardPlayed != null && (previousCardPlayed == null || cardPlayed.uuid != previousCardPlayed.uuid)) {
+            previousCardPlayed = cardPlayed;
+            return cardPlayed;
+        }
+        return null;
+    }
+
+
 }
